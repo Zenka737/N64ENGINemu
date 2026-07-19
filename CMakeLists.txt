@@ -26,6 +26,7 @@ add_library(n64core STATIC
   src/mem/rdram.cpp
   src/cpu/vr4300.cpp
   src/video/frame_timing.cpp
+  src/video/vi.cpp
 )
 target_include_directories(n64core PUBLIC include)
 
