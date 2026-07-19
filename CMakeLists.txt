@@ -34,6 +34,19 @@ add_executable(n64enginemu
 target_link_libraries(n64enginemu PRIVATE n64core SDL2::SDL2)
 if(WIN32)
   target_link_libraries(n64enginemu PRIVATE comdlg32)
+
+  # SDL2 is usually shipped as a shared library on Windows; copy it next to
+  # the executable so running/debugging from the build directory works
+  # without manually placing SDL2.dll on PATH.
+  if(TARGET SDL2::SDL2)
+    add_custom_command(
+      TARGET n64enginemu POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:SDL2::SDL2>
+        $<TARGET_FILE_DIR:n64enginemu>
+      COMMAND_EXPAND_LISTS
+    )
+  endif()
 endif()
 
 option(N64ENGINEMU_BUILD_TESTS "Build unit tests" ON)
