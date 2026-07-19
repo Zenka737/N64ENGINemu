@@ -10,11 +10,11 @@ namespace n64 {
 
 // Interpreter core for the VR4300 (MIPS R4300i) CPU. Implements a
 // scalar-integer subset of the MIPS I instruction set (ALU, branch/jump
-// with delay slots, and byte/halfword/word loads and stores) sufficient
-// to run straight-line and control-flow-heavy code, plus minimal
-// Coprocessor 0 register move support (MTC0/MFC0) and CACHE-as-no-op. Full
-// COP0 semantics (TLB, exceptions/interrupts), the FPU, and 64-bit MIPS III
-// instructions are not implemented yet.
+// with delay slots, and byte/halfword/word loads and stores), a handful
+// of MIPS III 64-bit integer instructions (DADDU/DADDIU/DSUBU, the DSxx
+// shift family, and LD/SD), plus minimal Coprocessor 0 register move
+// support (MTC0/MFC0) and CACHE-as-no-op. Full COP0 semantics (TLB,
+// exceptions/interrupts) and the FPU are not implemented yet.
 class Vr4300 {
  public:
   explicit Vr4300(RdRam& rdram);
