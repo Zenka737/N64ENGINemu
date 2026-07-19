@@ -13,3 +13,7 @@ add_test(NAME test_frame_timing COMMAND test_frame_timing)
 add_executable(test_vi test_vi.cpp)
 target_link_libraries(test_vi PRIVATE n64core)
 add_test(NAME test_vi COMMAND test_vi)
+
+add_executable(test_controller test_controller.cpp)
+target_link_libraries(test_controller PRIVATE n64core)
+add_test(NAME test_controller COMMAND test_controller)
