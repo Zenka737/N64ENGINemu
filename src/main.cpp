@@ -1,7 +1,10 @@
+#ifndef _WIN32
 // Keep our own entry point instead of letting SDL rename main to SDL_main
-// (which would require linking SDL2main and complicate the MSVC/CLI build).
+// (which would require linking SDL2main and complicate the CLI build). Only
+// needed on the SDL backend (non-Windows); Windows uses native Win32 video.
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#endif
 
 #include <cstdint>
 #include <cstdlib>
@@ -108,7 +111,9 @@ void RunLoop(n64::Vr4300& cpu, n64::Video& video) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifndef _WIN32
   SDL_SetMainReady();
+#endif
   try {
     const n64::Rom rom = LoadRom(argc, argv);
     std::cout << "Loaded ROM: " << rom.header().image_name << " (" << rom.header().game_id << ")\n";

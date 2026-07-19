@@ -15,7 +15,11 @@ else()
   add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
-find_package(SDL2 REQUIRED)
+# Windows video is native Win32/GDI (no extra dependency to install);
+# everywhere else it's backed by SDL2.
+if(NOT WIN32)
+  find_package(SDL2 REQUIRED)
+endif()
 
 add_library(n64core STATIC
   src/mem/rom.cpp
@@ -25,28 +29,17 @@ add_library(n64core STATIC
 )
 target_include_directories(n64core PUBLIC include)
 
-# The SDL-backed windowing layer is kept separate from n64core so the unit
-# tests (which link n64core) never need a display or SDL at all.
+# The windowing layer is kept separate from n64core so the unit tests (which
+# link n64core) never need a display, SDL, or Win32 GUI APIs at all.
 add_executable(n64enginemu
   src/main.cpp
   src/video/video.cpp
 )
-target_link_libraries(n64enginemu PRIVATE n64core SDL2::SDL2)
+target_link_libraries(n64enginemu PRIVATE n64core)
 if(WIN32)
-  target_link_libraries(n64enginemu PRIVATE comdlg32)
-
-  # SDL2 is usually shipped as a shared library on Windows; copy it next to
-  # the executable so running/debugging from the build directory works
-  # without manually placing SDL2.dll on PATH.
-  if(TARGET SDL2::SDL2)
-    add_custom_command(
-      TARGET n64enginemu POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:SDL2::SDL2>
-        $<TARGET_FILE_DIR:n64enginemu>
-      COMMAND_EXPAND_LISTS
-    )
-  endif()
+  target_link_libraries(n64enginemu PRIVATE comdlg32 gdi32)
+else()
+  target_link_libraries(n64enginemu PRIVATE SDL2::SDL2)
 endif()
 
 option(N64ENGINEMU_BUILD_TESTS "Build unit tests" ON)
