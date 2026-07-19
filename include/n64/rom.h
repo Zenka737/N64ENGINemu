@@ -24,12 +24,18 @@ class Rom {
   // Loads a ROM image from disk, normalizing it to big-endian (.z64) order.
   // Throws std::runtime_error on I/O failure or an unrecognized ROM format.
   static Rom LoadFromFile(const std::string& path);
+#ifdef _WIN32
+  // Wide-string overload so ROM paths containing non-ASCII characters
+  // (e.g. a Windows user profile with Cyrillic letters) load correctly.
+  static Rom LoadFromFile(const std::wstring& path);
+#endif
 
   const RomHeader& header() const { return header_; }
   const std::vector<uint8_t>& data() const { return data_; }
   RomFormat format() const { return format_; }
 
  private:
+  static Rom FromBytes(std::vector<uint8_t> raw);
   static RomFormat DetectFormat(const std::vector<uint8_t>& raw);
   static void NormalizeToBigEndian(std::vector<uint8_t>& data, RomFormat format);
   static RomHeader ParseHeader(const std::vector<uint8_t>& data);
