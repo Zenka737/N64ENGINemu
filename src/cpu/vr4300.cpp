@@ -119,6 +119,25 @@ void Vr4300::ExecuteSpecial(uint32_t instr) {
   }
 }
 
+void Vr4300::ExecuteCop0(uint32_t instr) {
+  // Bits 25:21 select the COP0 function: MTC0/MFC0 use the "rs" field to
+  // carry a sub-opcode (0x00 = MF, 0x04 = MT) rather than a register.
+  const uint32_t sub_opcode = RegField(instr, 21) & 0x1FU;
+  const int rt = RegField(instr, 16);
+  const int rd = RegField(instr, 11);
+
+  switch (sub_opcode) {
+    case 0x00:  // MFC0 rt, rd
+      set_gpr(rt, SignExtend32(cop0_.reg(rd)));
+      return;
+    case 0x04:  // MTC0 rt, rd
+      cop0_.set_reg(rd, static_cast<uint32_t>(gpr(rt)));
+      return;
+    default:
+      throw std::runtime_error("Unimplemented COP0 instruction");
+  }
+}
+
 void Vr4300::ExecuteRegImm(uint32_t instr) {
   const int rs = RegField(instr, 21);
   const uint32_t sub_opcode = (instr >> 16) & 0x1FU;
@@ -158,6 +177,9 @@ void Vr4300::Execute(uint32_t instr) {
       return;
     case 0x01:
       ExecuteRegImm(instr);
+      return;
+    case 0x10:  // COP0
+      ExecuteCop0(instr);
       return;
     case 0x02: {  // J
       const uint32_t target = ((pc_ + 4) & 0xF0000000U) | ((instr & 0x3FFFFFFU) << 2);
@@ -233,6 +255,11 @@ void Vr4300::Execute(uint32_t instr) {
     case 0x2B:  // SW
       rdram_.Write32(TranslateAddress(static_cast<uint32_t>(gpr(rs)) + addr_offset),
                      static_cast<uint32_t>(gpr(rt)));
+      return;
+    case 0x2F:  // CACHE
+      // Real cache-maintenance ops (index/hit invalidate, writeback, etc.)
+      // have no observable effect in an interpreter where memory is always
+      // immediately consistent, so this is a deliberate no-op.
       return;
     default:
       throw std::runtime_error("Unimplemented opcode");
