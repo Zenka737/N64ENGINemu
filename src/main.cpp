@@ -7,8 +7,10 @@
 #include "n64/vr4300.h"
 
 #ifdef _WIN32
-#include <commdlg.h>
+// clang-format off
 #include <windows.h>
+#include <commdlg.h>
+// clang-format on
 
 #include <optional>
 #include <string>
