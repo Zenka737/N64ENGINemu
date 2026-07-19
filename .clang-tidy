@@ -1,0 +1,14 @@
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -performance-enum-size,
+  -clang-diagnostic-unused-private-field
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'include/n64/.*'

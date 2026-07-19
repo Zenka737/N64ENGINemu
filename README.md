@@ -34,7 +34,26 @@ N64ENGINemu нацелен на точную и производительную
 
 ## Сборка
 
-Инструкции по сборке будут добавлены по мере появления кода проекта.
+Требуется CMake >= 3.16 и компилятор с поддержкой C++20.
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+Запуск: `./build/n64enginemu <path-to-rom>`.
+
+## CI
+
+На каждый Pull Request автоматически запускаются (см. `.github/workflows/ci.yml`):
+
+- сборка проекта под GCC и Clang с флагами `-Wall -Wextra -Wpedantic -Werror`;
+- юнит-тесты через CTest;
+- проверка форматирования (`clang-format --dry-run --Werror`);
+- статический анализ (`clang-tidy`, warnings-as-errors).
+
+PR не должен мержиться, пока все эти проверки не пройдены.
 
 ## Лицензия
 
