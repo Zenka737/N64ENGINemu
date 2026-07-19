@@ -29,6 +29,7 @@ add_library(n64core STATIC
   src/video/vi.cpp
   src/mem/controller.cpp
   src/video/sprite_scene.cpp
+  src/video/rsp_hle.cpp
 )
 target_include_directories(n64core PUBLIC include)
 
