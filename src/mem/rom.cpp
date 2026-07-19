@@ -67,6 +67,15 @@ RomHeader Rom::ParseHeader(const std::vector<uint8_t>& data) {
   return header;
 }
 
+Rom Rom::FromBytes(std::vector<uint8_t> raw) {
+  Rom rom;
+  rom.format_ = DetectFormat(raw);
+  NormalizeToBigEndian(raw, rom.format_);
+  rom.header_ = ParseHeader(raw);
+  rom.data_ = std::move(raw);
+  return rom;
+}
+
 Rom Rom::LoadFromFile(const std::string& path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   if (!file) {
@@ -81,12 +90,28 @@ Rom Rom::LoadFromFile(const std::string& path) {
     throw std::runtime_error("Failed to read ROM file: " + path);
   }
 
-  Rom rom;
-  rom.format_ = DetectFormat(raw);
-  NormalizeToBigEndian(raw, rom.format_);
-  rom.header_ = ParseHeader(raw);
-  rom.data_ = std::move(raw);
-  return rom;
+  return FromBytes(std::move(raw));
 }
+
+#ifdef _WIN32
+// std::ifstream's wstring constructor is an MSVC extension (not standard
+// C++), which is fine here since this overload only exists under _WIN32.
+Rom Rom::LoadFromFile(const std::wstring& path) {
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  if (!file) {
+    throw std::runtime_error("Failed to open ROM file");
+  }
+
+  const std::streamsize size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  std::vector<uint8_t> raw(static_cast<size_t>(size));
+  if (!file.read(reinterpret_cast<char*>(raw.data()), size)) {
+    throw std::runtime_error("Failed to read ROM file");
+  }
+
+  return FromBytes(std::move(raw));
+}
+#endif
 
 }  // namespace n64

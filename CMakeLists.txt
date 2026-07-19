@@ -24,6 +24,9 @@ target_include_directories(n64core PUBLIC include)
 
 add_executable(n64enginemu src/main.cpp)
 target_link_libraries(n64enginemu PRIVATE n64core)
+if(WIN32)
+  target_link_libraries(n64enginemu PRIVATE comdlg32)
+endif()
 
 option(N64ENGINEMU_BUILD_TESTS "Build unit tests" ON)
 if(N64ENGINEMU_BUILD_TESTS)
