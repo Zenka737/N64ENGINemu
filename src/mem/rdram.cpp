@@ -20,6 +20,22 @@ void RdRam::Write8(uint32_t address, uint8_t value) {
   data_[address] = value;
 }
 
+uint16_t RdRam::Read16(uint32_t address) const {
+  if (address + 2 > data_.size()) {
+    throw std::out_of_range("RDRAM read out of range");
+  }
+  return static_cast<uint16_t>((static_cast<uint16_t>(data_[address]) << 8) |
+                               static_cast<uint16_t>(data_[address + 1]));
+}
+
+void RdRam::Write16(uint32_t address, uint16_t value) {
+  if (address + 2 > data_.size()) {
+    throw std::out_of_range("RDRAM write out of range");
+  }
+  data_[address] = static_cast<uint8_t>(value >> 8);
+  data_[address + 1] = static_cast<uint8_t>(value);
+}
+
 uint32_t RdRam::Read32(uint32_t address) const {
   if (address + 4 > data_.size()) {
     throw std::out_of_range("RDRAM read out of range");
