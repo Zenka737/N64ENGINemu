@@ -28,6 +28,7 @@ add_library(n64core STATIC
   src/video/frame_timing.cpp
   src/video/vi.cpp
   src/mem/controller.cpp
+  src/video/sprite_scene.cpp
 )
 target_include_directories(n64core PUBLIC include)
 
