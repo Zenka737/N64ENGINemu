@@ -15,6 +15,7 @@
 #include "n64/controller.h"
 #include "n64/frame_timing.h"
 #include "n64/input.h"
+#include "n64/pi.h"
 #include "n64/rdram.h"
 #include "n64/rom.h"
 #include "n64/sprite_scene.h"
@@ -148,6 +149,12 @@ int main(int argc, char** argv) {
     std::cout << "Entry point: 0x" << std::hex << rom.header().entry_point << std::dec << "\n";
 
     n64::RdRam rdram;
+    // Real hardware relies on IPL3 (the cartridge's boot code) to DMA the
+    // game's code/data from ROM into RDRAM before the CPU ever runs an
+    // instruction at the header's entry point. Without this, entry_point
+    // refers to RDRAM that was never written.
+    n64::Pi::BootCopy(rom, rdram);
+
     n64::Vr4300 cpu(rdram);
     cpu.Reset(rom.header().entry_point);
 
