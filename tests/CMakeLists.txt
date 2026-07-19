@@ -17,3 +17,7 @@ add_test(NAME test_vi COMMAND test_vi)
 add_executable(test_controller test_controller.cpp)
 target_link_libraries(test_controller PRIVATE n64core)
 add_test(NAME test_controller COMMAND test_controller)
+
+add_executable(test_sprite_scene test_sprite_scene.cpp)
+target_link_libraries(test_sprite_scene PRIVATE n64core)
+add_test(NAME test_sprite_scene COMMAND test_sprite_scene)

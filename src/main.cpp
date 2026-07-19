@@ -17,6 +17,7 @@
 #include "n64/input.h"
 #include "n64/rdram.h"
 #include "n64/rom.h"
+#include "n64/sprite_scene.h"
 #include "n64/vi.h"
 #include "n64/video.h"
 #include "n64/vr4300.h"
@@ -81,29 +82,29 @@ namespace {
 constexpr int kWindowWidth = 640;
 constexpr int kWindowHeight = 480;
 
-// Drives the CPU and presents frames until the window is closed. The CPU
-// interpreter only implements a subset of the ISA, so Step() will throw a
-// std::runtime_error on the first unimplemented opcode (which happens quickly
-// on real game code). We catch that, stop stepping, and keep the window open
-// showing the last frame so the user can see what happened.
-void RunLoop(n64::Vr4300& cpu, n64::Video& video, n64::Vi& vi, const n64::RdRam& rdram) {
+constexpr uint32_t kSceneOrigin = 0x0020'0000;  // 2MB into RDRAM, clear of low memory.
+
+// Drives the CPU, moves the on-screen square from input, and presents frames
+// until the window is closed. The CPU interpreter only implements a subset of
+// the ISA, so Step() will throw a std::runtime_error on the first
+// unimplemented opcode (which happens quickly on real game code). We catch
+// that, stop stepping, and keep the window open showing the scene so the user
+// can still see (and move) something.
+void RunLoop(n64::Vr4300& cpu, n64::Video& video, n64::Vi& vi, n64::RdRam& rdram) {
   const uint64_t instructions_per_frame = n64::InstructionsPerFrame();
   bool cpu_running = true;
-  uint64_t frame = 0;
 
-  // Real keyboard input feeds a Controller each frame. Until the CPU can run
-  // game code, we make the input visibly reach core state by driving the test
-  // pattern with it: the analog stick offsets the animation phase and A pauses
-  // it, so the user can see that keystrokes really reach the emulator.
+  // Real keyboard input feeds a Controller each frame. The CPU can't run real
+  // game code far enough to draw anything itself yet, so SpriteScene is a
+  // stand-in "game": a square moved directly by the same input, drawn into
+  // RDRAM and scanned out through the real VI pixel pipeline.
   n64::Controller pad;
+  n64::SpriteScene scene;
 
   while (video.PollEvents()) {
     n64::PollKeyboardInto(pad);
-    if (!pad.IsPressed(n64::Controller::Button::A)) {
-      ++frame;
-    }
-    const auto phase = static_cast<uint64_t>(static_cast<int64_t>(frame) + pad.stick_x() +
-                                             static_cast<int64_t>(pad.stick_y()) * 256);
+    scene.Advance(pad);
+    scene.Draw(rdram, kSceneOrigin);
 
     if (cpu_running) {
       try {
@@ -117,39 +118,21 @@ void RunLoop(n64::Vr4300& cpu, n64::Video& video, n64::Vi& vi, const n64::RdRam&
       }
     }
 
-    // The VI scans a real framebuffer out of RDRAM when one is configured,
-    // otherwise it falls back to the animated test pattern driven by `phase`
-    // (which the controller above offsets/pauses) so keyboard input stays
-    // visible even though no real game can program the VI yet. When a
-    // framebuffer is configured the presented size follows VI_WIDTH/height.
-    const bool has_fb = vi.format() == n64::Vi::PixelFormat::kRgba5551 ||
-                        vi.format() == n64::Vi::PixelFormat::kRgba8888;
-    const int present_w = has_fb ? static_cast<int>(vi.width()) : kWindowWidth;
-    const int present_h = has_fb ? static_cast<int>(vi.height()) : kWindowHeight;
     const std::vector<uint8_t> framebuffer =
-        vi.RenderFrameOrFallback(rdram, phase, kWindowWidth, kWindowHeight);
-    video.PresentFrame(framebuffer.data(), present_w, present_h);
+        vi.RenderFrameOrFallback(rdram, 0, kWindowWidth, kWindowHeight);
+    video.PresentFrame(framebuffer.data(), static_cast<int>(vi.width()),
+                       static_cast<int>(vi.height()));
   }
 }
 
-// Writes a small synthetic RGBA5551 checkerboard directly into RDRAM and points
-// the VI at it. This is a demonstration hook: it proves the VI pixel pipeline
-// reads and converts real RDRAM content, even though the CPU cannot yet program
-// the VI itself (no MMIO dispatch exists in Vr4300 yet).
-void PokeSyntheticFramebuffer(n64::RdRam& rdram, n64::Vi& vi) {
-  constexpr uint32_t kOrigin = 0x0020'0000;  // 2MB into RDRAM, clear of low memory
-  constexpr uint32_t kWidth = 320;
-  const uint32_t height = kWidth * 3 / 4;
-  const uint16_t red = 0xF801;    // RGBA5551: R=31, A=1
-  const uint16_t green = 0x07C1;  // RGBA5551: G=31, A=1
-  for (uint32_t y = 0; y < height; ++y) {
-    for (uint32_t x = 0; x < kWidth; ++x) {
-      const bool cell = (((x / 16) + (y / 16)) & 1) != 0;
-      rdram.Write16(kOrigin + (y * kWidth + x) * 2, cell ? red : green);
-    }
-  }
-  vi.WriteRegister(n64::Vi::kOrigin, kOrigin);
-  vi.WriteRegister(n64::Vi::kWidth, kWidth);
+// Points the VI at the SpriteScene's framebuffer. This is a deliberate
+// simplification: the CPU cannot yet program the VI itself (no MMIO dispatch
+// exists in Vr4300 — see the TODO in main() below), so the scene is driven
+// directly from the emulator's own input-polling loop instead of by
+// CPU-executed game code.
+void ConfigureVi(n64::Vi& vi) {
+  vi.WriteRegister(n64::Vi::kOrigin, kSceneOrigin);
+  vi.WriteRegister(n64::Vi::kWidth, n64::SpriteScene::kWidth);
   vi.WriteRegister(n64::Vi::kStatus, static_cast<uint32_t>(n64::Vi::PixelFormat::kRgba5551));
 }
 
@@ -170,11 +153,9 @@ int main(int argc, char** argv) {
 
     // TODO(mmio): Vr4300::TranslateAddress routes every load/store straight to
     // RDRAM; it needs MMIO dispatch so CPU writes to the VI register range
-    // (physical 0x0440'0000+) reach this Vi instead of raw RDRAM bytes. Until
-    // then we program the VI here and poke a synthetic framebuffer to exercise
-    // the real scanout path.
+    // (physical 0x0440'0000+) reach this Vi instead of raw RDRAM bytes.
     n64::Vi vi;
-    PokeSyntheticFramebuffer(rdram, vi);
+    ConfigureVi(vi);
 
     n64::PrintKeyBindings();
 
