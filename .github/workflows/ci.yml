@@ -19,7 +19,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang-tidy clang-format
+          sudo apt-get install -y cmake ninja-build clang-tidy clang-format libsdl2-dev
 
       - name: Configure (gcc)
         if: matrix.compiler == 'gcc'
@@ -44,7 +44,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang-tidy clang-format
+          sudo apt-get install -y cmake ninja-build clang-tidy clang-format libsdl2-dev
 
       - name: Check clang-format
         run: |
