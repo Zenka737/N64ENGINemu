@@ -27,6 +27,7 @@ add_library(n64core STATIC
   src/cpu/vr4300.cpp
   src/video/frame_timing.cpp
   src/video/vi.cpp
+  src/mem/controller.cpp
 )
 target_include_directories(n64core PUBLIC include)
 
@@ -35,6 +36,7 @@ target_include_directories(n64core PUBLIC include)
 add_executable(n64enginemu
   src/main.cpp
   src/video/video.cpp
+  src/input/input.cpp
 )
 target_link_libraries(n64enginemu PRIVATE n64core)
 if(WIN32)

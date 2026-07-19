@@ -12,7 +12,9 @@
 #include <stdexcept>
 #include <vector>
 
+#include "n64/controller.h"
 #include "n64/frame_timing.h"
+#include "n64/input.h"
 #include "n64/rdram.h"
 #include "n64/rom.h"
 #include "n64/vi.h"
@@ -89,7 +91,20 @@ void RunLoop(n64::Vr4300& cpu, n64::Video& video, n64::Vi& vi, const n64::RdRam&
   bool cpu_running = true;
   uint64_t frame = 0;
 
+  // Real keyboard input feeds a Controller each frame. Until the CPU can run
+  // game code, we make the input visibly reach core state by driving the test
+  // pattern with it: the analog stick offsets the animation phase and A pauses
+  // it, so the user can see that keystrokes really reach the emulator.
+  n64::Controller pad;
+
   while (video.PollEvents()) {
+    n64::PollKeyboardInto(pad);
+    if (!pad.IsPressed(n64::Controller::Button::A)) {
+      ++frame;
+    }
+    const auto phase = static_cast<uint64_t>(static_cast<int64_t>(frame) + pad.stick_x() +
+                                             static_cast<int64_t>(pad.stick_y()) * 256);
+
     if (cpu_running) {
       try {
         for (uint64_t i = 0; i < instructions_per_frame; ++i) {
@@ -103,17 +118,17 @@ void RunLoop(n64::Vr4300& cpu, n64::Video& video, n64::Vi& vi, const n64::RdRam&
     }
 
     // The VI scans a real framebuffer out of RDRAM when one is configured,
-    // otherwise it returns the animated test pattern. When a framebuffer is
-    // configured the presented size follows VI_WIDTH/height; when blank it uses
-    // the window size for the fallback.
+    // otherwise it falls back to the animated test pattern driven by `phase`
+    // (which the controller above offsets/pauses) so keyboard input stays
+    // visible even though no real game can program the VI yet. When a
+    // framebuffer is configured the presented size follows VI_WIDTH/height.
     const bool has_fb = vi.format() == n64::Vi::PixelFormat::kRgba5551 ||
                         vi.format() == n64::Vi::PixelFormat::kRgba8888;
     const int present_w = has_fb ? static_cast<int>(vi.width()) : kWindowWidth;
     const int present_h = has_fb ? static_cast<int>(vi.height()) : kWindowHeight;
     const std::vector<uint8_t> framebuffer =
-        vi.RenderFrameOrFallback(rdram, frame, kWindowWidth, kWindowHeight);
+        vi.RenderFrameOrFallback(rdram, phase, kWindowWidth, kWindowHeight);
     video.PresentFrame(framebuffer.data(), present_w, present_h);
-    ++frame;
   }
 }
 
@@ -160,6 +175,8 @@ int main(int argc, char** argv) {
     // the real scanout path.
     n64::Vi vi;
     PokeSyntheticFramebuffer(rdram, vi);
+
+    n64::PrintKeyBindings();
 
     n64::Video video("N64ENGINemu - " + rom.header().image_name, kWindowWidth, kWindowHeight);
     RunLoop(cpu, video, vi, rdram);
