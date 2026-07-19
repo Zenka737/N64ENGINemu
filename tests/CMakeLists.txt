@@ -25,3 +25,7 @@ add_test(NAME test_sprite_scene COMMAND test_sprite_scene)
 add_executable(test_rsp_hle test_rsp_hle.cpp)
 target_link_libraries(test_rsp_hle PRIVATE n64core)
 add_test(NAME test_rsp_hle COMMAND test_rsp_hle)
+
+add_executable(test_pi test_pi.cpp)
+target_link_libraries(test_pi PRIVATE n64core)
+add_test(NAME test_pi COMMAND test_pi)

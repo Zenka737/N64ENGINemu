@@ -24,6 +24,7 @@ endif()
 add_library(n64core STATIC
   src/mem/rom.cpp
   src/mem/rdram.cpp
+  src/mem/pi.cpp
   src/cpu/vr4300.cpp
   src/video/frame_timing.cpp
   src/video/vi.cpp

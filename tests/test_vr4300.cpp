@@ -93,4 +93,43 @@ cpu.set_gpr(1, 5);
 cpu.set_gpr(2, 1);
 cpu.Step();
 CHECK(cpu.gpr(3) == 6);
+
+// COP0: MTC0 $4, Status(12); MTC0 $5, Cause(13); MTC0 $6, Count(9);
+// then MFC0 back into other registers to verify the round trip.
+constexpr uint32_t kCop0Opcode = 0x10;
+constexpr uint32_t kMtc0SubOp = 0x04;
+constexpr uint32_t kMfc0SubOp = 0x00;
+rdram.Write32(0x900, EncodeR(kMtc0SubOp, 4, n64::Cop0::kStatus, 0, 0) | (kCop0Opcode << 26));
+rdram.Write32(0x904, EncodeR(kMtc0SubOp, 5, n64::Cop0::kCause, 0, 0) | (kCop0Opcode << 26));
+rdram.Write32(0x908, EncodeR(kMtc0SubOp, 6, n64::Cop0::kCount, 0, 0) | (kCop0Opcode << 26));
+rdram.Write32(0x90C, EncodeR(kMfc0SubOp, 7, n64::Cop0::kStatus, 0, 0) | (kCop0Opcode << 26));
+rdram.Write32(0x910, EncodeR(kMfc0SubOp, 8, n64::Cop0::kCause, 0, 0) | (kCop0Opcode << 26));
+rdram.Write32(0x914, EncodeR(kMfc0SubOp, 9, n64::Cop0::kCount, 0, 0) | (kCop0Opcode << 26));
+cpu.Reset(0x80000900);
+cpu.set_gpr(4, 0x34000000);  // Typical boot-time Status value.
+cpu.set_gpr(5, 0x0000007C);
+cpu.set_gpr(6, 0x12345678);
+cpu.Step();  // MTC0 Status
+cpu.Step();  // MTC0 Cause
+cpu.Step();  // MTC0 Count
+CHECK(cpu.cop0().reg(n64::Cop0::kStatus) == 0x34000000);
+CHECK(cpu.cop0().reg(n64::Cop0::kCause) == 0x0000007C);
+CHECK(cpu.cop0().reg(n64::Cop0::kCount) == 0x12345678);
+cpu.Step();  // MFC0 $7, Status
+CHECK(cpu.gpr(7) == 0x34000000);
+cpu.Step();  // MFC0 $8, Cause
+CHECK(cpu.gpr(8) == 0x0000007C);
+cpu.Step();  // MFC0 $9, Count
+CHECK(cpu.gpr(9) == 0x12345678);
+CHECK(cpu.pc() == 0x80000918);
+
+// CACHE is a no-op: it must not alter any GPR or COP0 register, only PC.
+rdram.Write32(0xA00, EncodeI(0x2F, 0, 0, 0));  // CACHE (fields otherwise ignored).
+cpu.Reset(0x80000A00);
+cpu.set_gpr(1, 0xDEADBEEF);
+const uint32_t status_before = cpu.cop0().reg(n64::Cop0::kStatus);
+cpu.Step();
+CHECK(cpu.pc() == 0x80000A04);
+CHECK(cpu.gpr(1) == 0xDEADBEEF);
+CHECK(cpu.cop0().reg(n64::Cop0::kStatus) == status_before);
 TEST_MAIN_END()
