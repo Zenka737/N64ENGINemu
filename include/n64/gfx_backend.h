@@ -13,8 +13,7 @@ class GfxBackend {
 
   virtual void SetViewport(int x, int y, int width, int height) = 0;
   virtual void BindTexture(uint32_t texture_id) = 0;
-  virtual void DrawTriangle(const float* v0_xyz, const float* v1_xyz,
-                             const float* v2_xyz) = 0;
+  virtual void DrawTriangle(const float* v0_xyz, const float* v1_xyz, const float* v2_xyz) = 0;
   virtual void Present() = 0;
 };
 

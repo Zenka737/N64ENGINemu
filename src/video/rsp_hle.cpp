@@ -14,8 +14,8 @@ void RspHle::RegisterCommand(uint8_t opcode, CommandHandler handler) {
 
 void RspHle::RunDisplayList(uint32_t dl_address) {
   for (;;) {
-    const uint64_t command = (static_cast<uint64_t>(rdram_.Read32(dl_address)) << 32) |
-                              rdram_.Read32(dl_address + 4);
+    const uint64_t command =
+        (static_cast<uint64_t>(rdram_.Read32(dl_address)) << 32) | rdram_.Read32(dl_address + 4);
     const auto opcode = static_cast<uint8_t>(command >> 56);
 
     if (opcode == kOpEndDisplayList) {

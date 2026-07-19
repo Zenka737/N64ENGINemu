@@ -1,6 +1,5 @@
-#include "n64/rsp_hle.h"
-
 #include "n64/rdram.h"
+#include "n64/rsp_hle.h"
 #include "test_framework.h"
 
 namespace {
@@ -43,7 +42,7 @@ TEST_MAIN_BEGIN()
   RspHle rsp(rdram, gfx);
 
   rsp.RegisterCommand(kOpSetViewport,
-                       [](RspHle& r, uint64_t) { r.gfx().SetViewport(0, 0, 320, 240); });
+                      [](RspHle& r, uint64_t) { r.gfx().SetViewport(0, 0, 320, 240); });
   rsp.RegisterCommand(kOpDrawTriangle, [](RspHle& r, uint64_t) {
     const float v[3] = {0, 0, 0};
     r.gfx().DrawTriangle(v, v, v);
