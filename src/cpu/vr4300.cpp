@@ -114,6 +114,41 @@ void Vr4300::ExecuteSpecial(uint32_t instr) {
     case 0x2B:  // SLTU
       set_gpr(rd, gpr(rs) < gpr(rt) ? 1U : 0U);
       return;
+    case 0x14:  // DSLLV
+      set_gpr(rd, gpr(rt) << (rs_shift & 0x3F));
+      return;
+    case 0x16:  // DSRLV
+      set_gpr(rd, gpr(rt) >> (rs_shift & 0x3F));
+      return;
+    case 0x17:  // DSRAV
+      set_gpr(rd, static_cast<uint64_t>(static_cast<int64_t>(gpr(rt)) >> (gpr(rs) & 0x3F)));
+      return;
+    case 0x2C:  // DADD
+    case 0x2D:  // DADDU
+      set_gpr(rd, gpr(rs) + gpr(rt));
+      return;
+    case 0x2E:  // DSUB
+    case 0x2F:  // DSUBU
+      set_gpr(rd, gpr(rs) - gpr(rt));
+      return;
+    case 0x38:  // DSLL
+      set_gpr(rd, gpr(rt) << shamt);
+      return;
+    case 0x3A:  // DSRL
+      set_gpr(rd, gpr(rt) >> shamt);
+      return;
+    case 0x3B:  // DSRA
+      set_gpr(rd, static_cast<uint64_t>(static_cast<int64_t>(gpr(rt)) >> shamt));
+      return;
+    case 0x3C:  // DSLL32
+      set_gpr(rd, gpr(rt) << (shamt + 32));
+      return;
+    case 0x3E:  // DSRL32
+      set_gpr(rd, gpr(rt) >> (shamt + 32));
+      return;
+    case 0x3F:  // DSRA32
+      set_gpr(rd, static_cast<uint64_t>(static_cast<int64_t>(gpr(rt)) >> (shamt + 32)));
+      return;
     default:
       throw std::runtime_error("Unimplemented SPECIAL funct");
   }
@@ -226,6 +261,9 @@ void Vr4300::Execute(uint32_t instr) {
     case 0x0F:  // LUI
       set_gpr(rt, SignExtend32(uimm16 << 16));
       return;
+    case 0x19:  // DADDIU
+      set_gpr(rt, gpr(rs) + static_cast<uint64_t>(static_cast<int64_t>(imm16)));
+      return;
     case 0x20:  // LB
       set_gpr(rt, static_cast<uint64_t>(static_cast<int64_t>(static_cast<int8_t>(rdram_.Read8(
                       TranslateAddress(static_cast<uint32_t>(gpr(rs)) + addr_offset))))));
@@ -256,6 +294,20 @@ void Vr4300::Execute(uint32_t instr) {
       rdram_.Write32(TranslateAddress(static_cast<uint32_t>(gpr(rs)) + addr_offset),
                      static_cast<uint32_t>(gpr(rt)));
       return;
+    case 0x37: {  // LD
+      const uint32_t addr = TranslateAddress(static_cast<uint32_t>(gpr(rs)) + addr_offset);
+      const uint64_t hi = rdram_.Read32(addr);
+      const uint64_t lo = rdram_.Read32(addr + 4);
+      set_gpr(rt, (hi << 32) | lo);
+      return;
+    }
+    case 0x3F: {  // SD
+      const uint32_t addr = TranslateAddress(static_cast<uint32_t>(gpr(rs)) + addr_offset);
+      const uint64_t value = gpr(rt);
+      rdram_.Write32(addr, static_cast<uint32_t>(value >> 32));
+      rdram_.Write32(addr + 4, static_cast<uint32_t>(value));
+      return;
+    }
     case 0x2F:  // CACHE
       // Real cache-maintenance ops (index/hit invalidate, writeback, etc.)
       // have no observable effect in an interpreter where memory is always

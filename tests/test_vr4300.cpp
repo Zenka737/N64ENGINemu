@@ -132,4 +132,87 @@ cpu.Step();
 CHECK(cpu.pc() == 0x80000A04);
 CHECK(cpu.gpr(1) == 0xDEADBEEF);
 CHECK(cpu.cop0().reg(n64::Cop0::kStatus) == status_before);
+// DADDU $3, $1, $2 with $1 and $2 holding values that overflow 32 bits when
+// summed, verifying the addition is performed at full 64-bit width.
+rdram.Write32(0xB00, EncodeR(1, 2, 3, 0, 0x2D));
+cpu.Reset(0x80000B00);
+cpu.set_gpr(1, 0xFFFFFFFF00000001ULL);
+cpu.set_gpr(2, 0x0000000200000000ULL);
+cpu.Step();
+CHECK(cpu.gpr(3) == 0x0000000100000001ULL);
+
+// DADDIU $2, $1, -1 with $1 = 0, verifying sign-extended immediate and
+// 64-bit (not 32-bit) underflow/wraparound.
+rdram.Write32(0xB10, EncodeI(0x19, 1, 2, 0xFFFF));
+cpu.Reset(0x80000B10);
+cpu.set_gpr(1, 0);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0xFFFFFFFFFFFFFFFFULL);
+
+// DSUBU $3, $1, $2 at full 64-bit width.
+rdram.Write32(0xB20, EncodeR(1, 2, 3, 0, 0x2F));
+cpu.Reset(0x80000B20);
+cpu.set_gpr(1, 0x0000000100000000ULL);
+cpu.set_gpr(2, 1);
+cpu.Step();
+CHECK(cpu.gpr(3) == 0x00000000FFFFFFFFULL);
+
+// DSLL $2, $1, 4: shifting a value with bits above bit 31 confirms the
+// operation isn't truncated to 32 bits like SLL is.
+rdram.Write32(0xB30, EncodeR(0, 1, 2, 4, 0x38));
+cpu.Reset(0x80000B30);
+cpu.set_gpr(1, 0x0000000100000000ULL);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0x0000001000000000ULL);
+
+// DSRL $2, $1, 4: logical right shift, high bits filled with zero.
+rdram.Write32(0xB40, EncodeR(0, 1, 2, 4, 0x3A));
+cpu.Reset(0x80000B40);
+cpu.set_gpr(1, 0xF000000000000000ULL);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0x0F00000000000000ULL);
+
+// DSRA $2, $1, 4: arithmetic right shift, sign bit replicated.
+rdram.Write32(0xB50, EncodeR(0, 1, 2, 4, 0x3B));
+cpu.Reset(0x80000B50);
+cpu.set_gpr(1, 0xF000000000000000ULL);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0xFF00000000000000ULL);
+
+// DSLL32 $2, $1, 4: shift amount is (shamt + 32).
+rdram.Write32(0xB60, EncodeR(0, 1, 2, 4, 0x3C));
+cpu.Reset(0x80000B60);
+cpu.set_gpr(1, 0x1);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0x0000001000000000ULL);
+
+// DSRL32 $2, $1, 4: logical right shift by (shamt + 32).
+rdram.Write32(0xB70, EncodeR(0, 1, 2, 4, 0x3E));
+cpu.Reset(0x80000B70);
+cpu.set_gpr(1, 0xFF00000000000000ULL);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0x000000000FF00000ULL);
+
+// DSRA32 $2, $1, 4: arithmetic right shift by (shamt + 32), sign-extended.
+rdram.Write32(0xB80, EncodeR(0, 1, 2, 4, 0x3F));
+cpu.Reset(0x80000B80);
+cpu.set_gpr(1, 0xFF00000000000000ULL);
+cpu.Step();
+CHECK(cpu.gpr(2) == 0xFFFFFFFFFFF00000ULL);
+
+// SD/LD round trip: DADDIU $5, $0, ... isn't needed; use two ADDIU-based
+// halves via LUI/ORI to build a 64-bit value, store it, then load it back.
+// LUI $5, 0x1234; ORI $5, $5, 0x5678; DSLL32 $5, $5, 0; ORI $5, $5, 0x9ABC
+// gives $5 = 0x0000123400009ABC; simpler: just set the GPR directly and
+// exercise SD/LD via memory.
+rdram.Write32(0xB90, EncodeI(0x3F, 0, 5, 0x100));  // SD $5, 0x100($0)
+rdram.Write32(0xB94, EncodeI(0x37, 0, 6, 0x100));  // LD $6, 0x100($0)
+cpu.Reset(0x80000B90);
+cpu.set_gpr(5, 0x0123456789ABCDEFULL);
+cpu.Step();
+cpu.Step();
+CHECK(cpu.gpr(6) == 0x0123456789ABCDEFULL);
+CHECK(rdram.Read32(0x100) == 0x01234567U);
+CHECK(rdram.Read32(0x104) == 0x89ABCDEFU);
+
 TEST_MAIN_END()
