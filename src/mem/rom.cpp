@@ -3,6 +3,10 @@
 #include <fstream>
 #include <stdexcept>
 
+#ifdef _WIN32
+#include <filesystem>
+#endif
+
 namespace n64 {
 
 namespace {
@@ -94,10 +98,11 @@ Rom Rom::LoadFromFile(const std::string& path) {
 }
 
 #ifdef _WIN32
-// std::ifstream's wstring constructor is an MSVC extension (not standard
-// C++), which is fine here since this overload only exists under _WIN32.
+// Go through std::filesystem::path rather than std::wstring directly: an
+// ifstream constructor taking a wide string is an MSVC-only extension, but
+// one taking a path is standard and works on both MSVC and MinGW.
 Rom Rom::LoadFromFile(const std::wstring& path) {
-  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  std::ifstream file(std::filesystem::path(path), std::ios::binary | std::ios::ate);
   if (!file) {
     throw std::runtime_error("Failed to open ROM file");
   }

@@ -1,19 +1,20 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
-
-struct SDL_Window;
-struct SDL_Renderer;
-struct SDL_Texture;
 
 namespace n64 {
 
-// Owns an SDL window plus the renderer/texture used to blit emulated frames to
-// the screen. This is a thin presentation layer only: it knows nothing about
-// the RDP/VI and simply uploads a caller-provided RGBA8888 image each frame.
-// Windowing is intentionally kept out of the unit-tested core (headless CI has
-// no display); the pure per-frame logic lives in frame_timing.h instead.
+// Owns a window plus whatever presentation resources the platform backend
+// needs to blit emulated frames to the screen. This is a thin presentation
+// layer only: it knows nothing about the RDP/VI and simply uploads a
+// caller-provided RGBA8888 image each frame. Windowing is intentionally kept
+// out of the unit-tested core (headless CI has no display); the pure
+// per-frame logic lives in frame_timing.h instead.
+//
+// On Windows this is backed by plain Win32 + GDI (no extra dependency to
+// install). Elsewhere it is backed by SDL2.
 class Video {
  public:
   Video(const std::string& title, int width, int height);
@@ -28,16 +29,14 @@ class Video {
   // stretched to fill the window. A null or mismatched buffer is ignored.
   void PresentFrame(const uint8_t* rgba_pixels, int width, int height);
 
-  // Pumps the SDL event queue. Returns false once the user requests to close
-  // the window (window close button or Escape key).
+  // Pumps the platform event queue. Returns false once the user requests to
+  // close the window (window close button or Escape key).
   bool PollEvents();
 
+  struct Impl;
+
  private:
-  SDL_Window* window_ = nullptr;
-  SDL_Renderer* renderer_ = nullptr;
-  SDL_Texture* texture_ = nullptr;
-  int width_ = 0;
-  int height_ = 0;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace n64
