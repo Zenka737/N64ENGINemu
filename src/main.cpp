@@ -1,9 +1,18 @@
+// Keep our own entry point instead of letting SDL rename main to SDL_main
+// (which would require linking SDL2main and complicate the MSVC/CLI build).
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
+
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
+#include "n64/frame_timing.h"
 #include "n64/rdram.h"
 #include "n64/rom.h"
+#include "n64/video.h"
 #include "n64/vr4300.h"
 
 #ifdef _WIN32
@@ -61,7 +70,45 @@ n64::Rom LoadRom(int argc, char** argv) {
 }  // namespace
 #endif
 
+namespace {
+
+constexpr int kWindowWidth = 640;
+constexpr int kWindowHeight = 480;
+
+// Drives the CPU and presents frames until the window is closed. The CPU
+// interpreter only implements a subset of the ISA, so Step() will throw a
+// std::runtime_error on the first unimplemented opcode (which happens quickly
+// on real game code). We catch that, stop stepping, and keep the window open
+// showing the last frame so the user can see what happened.
+void RunLoop(n64::Vr4300& cpu, n64::Video& video) {
+  const uint64_t instructions_per_frame = n64::InstructionsPerFrame();
+  std::vector<uint8_t> framebuffer;
+  bool cpu_running = true;
+  uint64_t frame = 0;
+
+  while (video.PollEvents()) {
+    if (cpu_running) {
+      try {
+        for (uint64_t i = 0; i < instructions_per_frame; ++i) {
+          cpu.Step();
+        }
+      } catch (const std::exception& e) {
+        std::cerr << "CPU stopped at pc=0x" << std::hex << cpu.pc() << std::dec << ": " << e.what()
+                  << "\n";
+        cpu_running = false;
+      }
+    }
+
+    n64::FillTestPattern(framebuffer, {kWindowWidth, kWindowHeight}, frame);
+    video.PresentFrame(framebuffer.data(), kWindowWidth, kWindowHeight);
+    ++frame;
+  }
+}
+
+}  // namespace
+
 int main(int argc, char** argv) {
+  SDL_SetMainReady();
   try {
     const n64::Rom rom = LoadRom(argc, argv);
     std::cout << "Loaded ROM: " << rom.header().image_name << " (" << rom.header().game_id << ")\n";
@@ -70,6 +117,9 @@ int main(int argc, char** argv) {
     n64::RdRam rdram;
     n64::Vr4300 cpu(rdram);
     cpu.Reset(rom.header().entry_point);
+
+    n64::Video video("N64ENGINemu - " + rom.header().image_name, kWindowWidth, kWindowHeight);
+    RunLoop(cpu, video);
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << "\n";
     return EXIT_FAILURE;
