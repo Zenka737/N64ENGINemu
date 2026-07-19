@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & test (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-tidy clang-format
+
+      - name: Configure (gcc)
+        if: matrix.compiler == 'gcc'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++
+
+      - name: Configure (clang)
+        if: matrix.compiler == 'clang'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  lint:
+    name: Formatting & static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-tidy clang-format
+
+      - name: Check clang-format
+        run: |
+          files=$(find src include tests -name "*.cpp" -o -name "*.h")
+          clang-format --dry-run --Werror $files
+
+      - name: Configure (for compile_commands.json)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Run clang-tidy
+        run: |
+          files=$(find src include -name "*.cpp")
+          clang-tidy -p build $files
