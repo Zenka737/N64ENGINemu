@@ -28,7 +28,7 @@ void Pi::BootCopy(const Rom& rom, RdRam& rdram) {
 
   const uint64_t rom_available = data.size() - kBootRomOffset;
   const uint64_t rdram_available = rdram.size() - kBootRdramAddress;
-  const uint32_t length = static_cast<uint32_t>(std::min(rom_available, rdram_available));
+  const auto length = static_cast<uint32_t>(std::min(rom_available, rdram_available));
 
   Dma(rom, rdram, kBootRomOffset, kBootRdramAddress, length);
 }
