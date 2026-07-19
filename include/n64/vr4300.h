@@ -26,7 +26,7 @@ class Vr4300 {
   void Step();
 
  private:
-  RdRam& rdram_;
+  [[maybe_unused]] RdRam& rdram_;
   std::array<uint64_t, 32> gpr_{};
   uint32_t pc_ = 0;
 };
