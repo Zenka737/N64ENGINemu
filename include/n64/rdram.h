@@ -18,6 +18,9 @@ class RdRam {
   uint8_t Read8(uint32_t address) const;
   void Write8(uint32_t address, uint8_t value);
 
+  uint16_t Read16(uint32_t address) const;
+  void Write16(uint32_t address, uint16_t value);
+
   uint32_t Read32(uint32_t address) const;
   void Write32(uint32_t address, uint32_t value);
 
