@@ -173,6 +173,31 @@ void Vr4300::ExecuteCop0(uint32_t instr) {
   }
 }
 
+void Vr4300::ExecuteCop1(uint32_t instr) {
+  // Bits 25:21 select the COP1 function: MTC1/MFC1/CTC1/CFC1 use the "rs"
+  // field to carry a sub-opcode rather than a register, mirroring COP0.
+  const uint32_t sub_opcode = RegField(instr, 21) & 0x1FU;
+  const int rt = RegField(instr, 16);
+  const int rd = RegField(instr, 11);
+
+  switch (sub_opcode) {
+    case 0x00:  // MFC1 rt, rd
+      set_gpr(rt, SignExtend32(cop1_.reg(rd)));
+      return;
+    case 0x04:  // MTC1 rt, rd
+      cop1_.set_reg(rd, static_cast<uint32_t>(gpr(rt)));
+      return;
+    case 0x02:  // CFC1 rt, rd
+      set_gpr(rt, SignExtend32(cop1_.fcr(rd)));
+      return;
+    case 0x06:  // CTC1 rt, rd
+      cop1_.set_fcr(rd, static_cast<uint32_t>(gpr(rt)));
+      return;
+    default:
+      throw std::runtime_error("Unimplemented COP1 instruction");
+  }
+}
+
 void Vr4300::ExecuteRegImm(uint32_t instr) {
   const int rs = RegField(instr, 21);
   const uint32_t sub_opcode = (instr >> 16) & 0x1FU;
@@ -215,6 +240,9 @@ void Vr4300::Execute(uint32_t instr) {
       return;
     case 0x10:  // COP0
       ExecuteCop0(instr);
+      return;
+    case 0x11:  // COP1
+      ExecuteCop1(instr);
       return;
     case 0x02: {  // J
       const uint32_t target = ((pc_ + 4) & 0xF0000000U) | ((instr & 0x3FFFFFFU) << 2);

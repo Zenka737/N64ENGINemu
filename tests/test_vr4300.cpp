@@ -215,4 +215,30 @@ CHECK(cpu.gpr(6) == 0x0123456789ABCDEFULL);
 CHECK(rdram.Read32(0x100) == 0x01234567U);
 CHECK(rdram.Read32(0x104) == 0x89ABCDEFU);
 
+// COP1: MTC1 $4, $f2; CTC1 $5, FCR31; then MFC1/CFC1 back into other
+// registers to verify the round trip.
+constexpr uint32_t kCop1Opcode = 0x11;
+constexpr uint32_t kMtc1SubOp = 0x04;
+constexpr uint32_t kMfc1SubOp = 0x00;
+constexpr uint32_t kCtc1SubOp = 0x06;
+constexpr uint32_t kCfc1SubOp = 0x02;
+rdram.Write32(0xC00, EncodeR(kMtc1SubOp, 4, 2, 0, 0) | (kCop1Opcode << 26));
+rdram.Write32(0xC04,
+              EncodeR(kCtc1SubOp, 5, n64::Cop1::kFcrControlStatus, 0, 0) | (kCop1Opcode << 26));
+rdram.Write32(0xC08, EncodeR(kMfc1SubOp, 6, 2, 0, 0) | (kCop1Opcode << 26));
+rdram.Write32(0xC0C,
+              EncodeR(kCfc1SubOp, 7, n64::Cop1::kFcrControlStatus, 0, 0) | (kCop1Opcode << 26));
+cpu.Reset(0x80000C00);
+cpu.set_gpr(4, 0xDEADBEEF);
+cpu.set_gpr(5, 0x00000001);  // Round-to-nearest is 0; pick round-toward-zero (1).
+cpu.Step();                  // MTC1 $4, $f2
+CHECK(cpu.cop1().reg(2) == 0xDEADBEEF);
+cpu.Step();  // CTC1 $5, FCR31
+CHECK(cpu.cop1().fcr(n64::Cop1::kFcrControlStatus) == 0x00000001);
+cpu.Step();                                  // MFC1 $6, $f2
+CHECK(cpu.gpr(6) == 0xFFFFFFFFDEADBEEFULL);  // Sign-extended per MIPS MFC1 semantics.
+cpu.Step();                                  // CFC1 $7, FCR31
+CHECK(cpu.gpr(7) == 0x00000001);
+CHECK(cpu.pc() == 0x80000C10);
+
 TEST_MAIN_END()
